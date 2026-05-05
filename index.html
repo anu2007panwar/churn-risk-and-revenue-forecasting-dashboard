@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ChurnGuard — IT Services Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #060810;
+    --surface: #0d1117;
+    --surface2: #141b26;
+    --border: #1e2d40;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --accent3: #7c3aed;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --glow: 0 0 30px rgba(0,229,255,0.15);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise texture */
+  body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position:sticky; top:0; z-index:100;
+    background: rgba(6,8,16,0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display:flex; align-items:center; justify-content:space-between;
+    height: 64px;
+  }
+
+  .logo {
+    font-family:'Syne', sans-serif;
+    font-size:1.3rem; font-weight:800;
+    letter-spacing:-0.02em;
+  }
+  .logo span { color:var(--accent); }
+
+  .header-badge {
+    display:flex; align-items:center; gap:0.5rem;
+    font-size:0.7rem; color:var(--muted);
+  }
+  .pulse-dot {
+    width:8px; height:8px; border-radius:50%;
+    background:var(--success);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5)}
+    50%{box-shadow:0 0 0 6px rgba(16,185,129,0)}
+  }
+
+  /* ── LAYOUT ── */
+  .main { position:relative; z-index:1; max-width:1600px; margin:0 auto; padding:2rem; }
+
+  /* ── PAGE TITLE ── */
+  .page-title {
+    font-family:'Syne', sans-serif;
+    font-size:2rem; font-weight:800;
+    margin-bottom:0.3rem;
+  }
+  .page-subtitle { color:var(--muted); font-size:0.78rem; margin-bottom:2rem; }
+
+  /* ── TABS ── */
+  .tabs {
+    display:flex; gap:0.5rem; margin-bottom:2rem;
+    border-bottom:1px solid var(--border); padding-bottom:0;
+  }
+  .tab {
+    font-family:'Syne',sans-serif; font-size:0.8rem; font-weight:600;
+    padding:0.6rem 1.2rem; border:none; background:none;
+    color:var(--muted); cursor:pointer; border-bottom:2px solid transparent;
+    margin-bottom:-1px; transition:all 0.2s; letter-spacing:0.05em;
+    text-transform:uppercase;
+  }
+  .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab:hover:not(.active) { color:var(--text); }
+
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+  /* ── KPI CARDS ── */
+  .kpi-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
+    gap:1rem; margin-bottom:2rem;
+  }
+  .kpi {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px; padding:1.25rem;
+    position:relative; overflow:hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .kpi:hover { border-color:var(--accent); box-shadow:var(--glow); }
+  .kpi::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    background:linear-gradient(90deg, var(--accent), transparent);
+  }
+  .kpi.danger::before { background:linear-gradient(90deg, var(--danger), transparent); }
+  .kpi.warning::before { background:linear-gradient(90deg, var(--warning), transparent); }
+  .kpi.success::before { background:linear-gradient(90deg, var(--success), transparent); }
+  .kpi.purple::before { background:linear-gradient(90deg, var(--accent3), transparent); }
+
+  .kpi-label { font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.5rem; }
+  .kpi-value { font-family:'Syne',sans-serif; font-size:1.9rem; font-weight:800; line-height:1; }
+  .kpi-sub { font-size:0.65rem; color:var(--muted); margin-top:0.4rem; }
+
+  /* ── GRID 2-COL ── */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1.5rem; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; margin-bottom:1.5rem; }
+  @media(max-width:900px){ .grid-2,.grid-3{grid-template-columns:1fr;} }
+
+  /* ── CARD ── */
+  .card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px; padding:1.5rem;
+    position:relative;
+  }
+  .card-title {
+    font-family:'Syne',sans-serif; font-size:0.85rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--accent); margin-bottom:1.2rem;
+    display:flex; align-items:center; gap:0.5rem;
+  }
+  .card-title::before {
+    content:''; width:3px; height:14px; background:var(--accent); border-radius:2px;
+  }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:0.72rem; }
+  thead th {
+    text-align:left; padding:0.6rem 0.8rem;
+    color:var(--muted); font-weight:500; text-transform:uppercase; letter-spacing:0.08em;
+    border-bottom:1px solid var(--border); white-space:nowrap;
+  }
+  tbody tr {
+    border-bottom:1px solid rgba(255,255,255,0.04);
+    transition:background 0.15s;
+  }
+  tbody tr:hover { background:rgba(0,229,255,0.03); }
+  tbody td { padding:0.65rem 0.8rem; }
+
+  /* ── RISK BADGE ── */
+  .badge {
+    display:inline-block; padding:0.2rem 0.55rem;
+    border-radius:4px; font-size:0.65rem; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.06em;
+  }
+  .badge-high { background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); }
+  .badge-medium { background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3); }
+  .badge-low { background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); }
+
+  /* ── RISK BAR ── */
+  .risk-bar-wrap { display:flex; align-items:center; gap:0.5rem; }
+  .risk-bar { flex:1; height:5px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .risk-fill { height:100%; border-radius:3px; transition:width 0.6s ease; }
+  .risk-fill.high { background:var(--danger); }
+  .risk-fill.medium { background:var(--warning); }
+  .risk-fill.low { background:var(--success); }
+  .risk-val { font-size:0.68rem; color:var(--muted); min-width:34px; text-align:right; }
+
+  /* ── FILTER BAR ── */
+  .filter-bar {
+    display:flex; gap:0.5rem; margin-bottom:1rem; align-items:center; flex-wrap:wrap;
+  }
+  .filter-btn {
+    padding:0.35rem 0.85rem; border-radius:6px; font-family:'DM Mono',monospace;
+    font-size:0.7rem; cursor:pointer; border:1px solid var(--border);
+    background:var(--surface2); color:var(--muted); transition:all 0.2s;
+  }
+  .filter-btn.active { background:rgba(0,229,255,0.1); color:var(--accent); border-color:var(--accent); }
+  .filter-btn:hover:not(.active) { border-color:var(--text); color:var(--text); }
+
+  /* ── FACTOR CARD ── */
+  .factor-item {
+    border:1px solid var(--border); border-radius:10px; padding:1rem;
+    margin-bottom:0.8rem; background:var(--surface2);
+    transition:border-color 0.2s;
+  }
+  .factor-item:hover { border-color:var(--accent); }
+  .factor-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; }
+  .factor-name { font-family:'Syne',sans-serif; font-size:0.8rem; font-weight:600; }
+  .factor-affected { font-size:0.68rem; color:var(--muted); margin-top:0.3rem; }
+  .factor-reco {
+    font-size:0.68rem; color:var(--accent); margin-top:0.5rem;
+    padding:0.4rem 0.6rem; background:rgba(0,229,255,0.06);
+    border-left:2px solid var(--accent); border-radius:0 4px 4px 0;
+    line-height:1.5;
+  }
+
+  /* ── STRATEGY ── */
+  .strategy-list { list-style:none; }
+  .strategy-list li {
+    padding:0.7rem 0;
+    border-bottom:1px solid rgba(255,255,255,0.05);
+    font-size:0.75rem; color:var(--text);
+    display:flex; gap:0.7rem; align-items:flex-start;
+    line-height:1.5;
+  }
+  .strategy-list li:last-child { border:none; }
+  .strategy-num {
+    font-family:'Syne',sans-serif; font-weight:800; font-size:0.7rem;
+    color:var(--accent); min-width:1.5rem;
+  }
+
+  /* ── METRICS GRID ── */
+  .metric-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:0.65rem 0; border-bottom:1px solid rgba(255,255,255,0.05);
+  }
+  .metric-row:last-child { border:none; }
+  .metric-key { font-size:0.72rem; color:var(--muted); }
+  .metric-val { font-family:'Syne',sans-serif; font-weight:700; font-size:0.9rem; color:var(--accent); }
+
+  /* ── FORECAST CARDS ── */
+  .forecast-highlight {
+    background:linear-gradient(135deg, rgba(0,229,255,0.08), rgba(124,58,237,0.08));
+    border:1px solid rgba(0,229,255,0.2);
+    border-radius:12px; padding:1.25rem;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+  }
+  .forecast-highlight .big { font-family:'Syne',sans-serif; font-size:2rem; font-weight:800; color:var(--accent); }
+  .forecast-highlight .label { font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-top:0.3rem; }
+
+  /* ── LOADER ── */
+  .loader {
+    display:flex; align-items:center; justify-content:center;
+    min-height:300px; flex-direction:column; gap:1rem; color:var(--muted);
+  }
+  .spinner {
+    width:36px; height:36px; border:2px solid var(--border);
+    border-top-color:var(--accent); border-radius:50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* ── CHART CANVAS ── */
+  canvas { max-width:100%; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background:var(--surface); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+  /* ── ALERT BANNER ── */
+  .alert-banner {
+    background:rgba(239,68,68,0.08);
+    border:1px solid rgba(239,68,68,0.25);
+    border-radius:8px; padding:0.8rem 1rem;
+    font-size:0.72rem; color:#ef4444;
+    margin-bottom:1.5rem;
+    display:flex; gap:0.5rem; align-items:center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Churn<span>Guard</span></div>
+  <div class="header-badge">
+    <div class="pulse-dot"></div>
+    <span>MANAGED IT SERVICES · 200 CLIENTS · LIVE MODEL</span>
+  </div>
+</header>
+
+<div class="main">
+  <div class="page-title">Client Churn Risk & Revenue Intelligence</div>
+  <div class="page-subtitle">// Predictive analytics for enterprise client retention · 10M transaction records · SMOTE-balanced RF classifier</div>
+
+  <div id="alert-area"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab" onclick="switchTab('clients')">Client Risk Table</button>
+    <button class="tab" onclick="switchTab('forecast')">Revenue Forecast</button>
+    <button class="tab" onclick="switchTab('factors')">Churn Factors</button>
+    <button class="tab" onclick="switchTab('model')">Model Performance</button>
+  </div>
+
+  <!-- ── TAB: OVERVIEW ── -->
+  <div id="tab-overview" class="tab-panel active">
+    <div id="kpi-grid" class="kpi-grid">
+      <div class="loader"><div class="spinner"></div><span>Loading metrics…</span></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Risk Distribution</div>
+        <canvas id="riskDonut" height="220"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Churn Risk by Industry</div>
+        <canvas id="industryBar" height="220"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top Feature Importances (Random Forest)</div>
+      <canvas id="featureBar" height="130"></canvas>
+    </div>
+  </div>
+
+  <!-- ── TAB: CLIENTS ── -->
+  <div id="tab-clients" class="tab-panel">
+    <div class="filter-bar">
+      <span style="font-size:0.7rem;color:var(--muted)">FILTER:</span>
+      <button class="filter-btn active" onclick="filterClients('all', this)">All</button>
+      <button class="filter-btn" onclick="filterClients('high', this)">🔴 High Risk</button>
+      <button class="filter-btn" onclick="filterClients('medium', this)">🟡 Medium Risk</button>
+      <button class="filter-btn" onclick="filterClients('low', this)">🟢 Low Risk</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Client Churn Risk Registry</div>
+      <div class="table-wrap" id="client-table-wrap">
+        <div class="loader"><div class="spinner"></div><span>Loading clients…</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: FORECAST ── -->
+  <div id="tab-forecast" class="tab-panel">
+    <div id="forecast-highlights" class="grid-3" style="margin-bottom:1.5rem"></div>
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-title">12-Month Revenue Forecast — Base vs. Optimistic (5% Churn Reduction)</div>
+      <canvas id="revenueChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- ── TAB: FACTORS ── -->
+  <div id="tab-factors" class="tab-panel">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Top Churn Drivers</div>
+        <div id="factors-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Strategies to Reduce Churn by 5%</div>
+        <ul class="strategy-list" id="strategies-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: MODEL ── -->
+  <div id="tab-model" class="tab-panel">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Model Evaluation Metrics</div>
+        <div id="model-metrics"></div>
+        <div style="margin-top:1.2rem;font-size:0.65rem;color:var(--muted);line-height:1.7">
+          <div>// Algorithm: Random Forest Classifier (200 trees, max_depth=8)</div>
+          <div>// Imbalance fix: SMOTE (18% minority class → 33%)</div>
+          <div>// Missing data: Median imputation (12% records)</div>
+          <div>// Data scale: 10M transaction records → 200 client aggregates</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Methodology & Constraints</div>
+        <div style="font-size:0.72rem;line-height:2;color:var(--muted)">
+          <div style="color:var(--text)">Dataset Challenges Addressed:</div>
+          <div>→ <span style="color:var(--warning)">10M records</span> processed via batch aggregation to 200 client-level features</div>
+          <div>→ <span style="color:var(--warning)">12% missing financial data</span> imputed with median strategy</div>
+          <div>→ <span style="color:var(--warning)">18% churn rate</span> (imbalanced) handled with SMOTE oversampling</div>
+          <div style="margin-top:0.8rem;color:var(--text)">Models Used:</div>
+          <div>→ <span style="color:var(--accent)">Random Forest</span> — churn classification</div>
+          <div>→ <span style="color:var(--accent)">Gradient Boosting</span> — contract value imputation</div>
+          <div>→ <span style="color:var(--accent)">Monthly decay model</span> — 12-month revenue projection</div>
+          <div style="margin-top:0.8rem;color:var(--text)">3-Month At-Risk Prediction:</div>
+          <div>→ Clients with P(churn) > 0.5 flagged for immediate intervention</div>
+          <div>→ Score refreshed on each data pull</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────
+const API = 'http://localhost:8000/api';
+Chart.defaults.color = '#64748b';
+Chart.defaults.borderColor = '#1e2d40';
+Chart.defaults.font.family = "'DM Mono', monospace";
+
+// ── STATE ──────────────────────────────────
+let allClients = [];
+
+// ── TAB SWITCHING ──────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── FETCH HELPER ──────────────────────────
+async function apiFetch(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error(r.statusText);
+  return r.json();
+}
+
+// ── ALERT ──────────────────────────────────
+function showAlert(msg) {
+  document.getElementById('alert-area').innerHTML =
+    `<div class="alert-banner">⚠ ${msg}</div>`;
+}
+
+// ── INIT ───────────────────────────────────
+async function init() {
+  try {
+    const [summary, industry, features, forecast, factors] =
+      await Promise.all([
+        apiFetch('/summary'),
+        apiFetch('/industry-breakdown'),
+        apiFetch('/feature-importance'),
+        apiFetch('/revenue-forecast'),
+        apiFetch('/churn-factors'),
+      ]);
+
+    renderKPIs(summary, forecast);
+    renderRiskDonut(summary);
+    renderIndustryBar(industry);
+    renderFeatureBar(features);
+    renderForecast(forecast);
+    renderFactors(factors);
+    loadModelMetrics();
+    loadClients('all');
+  } catch(e) {
+    showAlert('Could not reach backend API. Make sure the FastAPI server is running on localhost:8000. ' + e.message);
+    renderMockData();
+  }
+}
+
+// ── KPI RENDER ─────────────────────────────
+function renderKPIs(s, f) {
+  const fmt = n => n >= 1e6 ? `$${(n/1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n/1e3).toFixed(0)}K` : `$${n}`;
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Total Clients</div><div class="kpi-value">${s.total_clients}</div><div class="kpi-sub">Enterprise accounts</div></div>
+    <div class="kpi danger"><div class="kpi-label">Churn Rate</div><div class="kpi-value" style="color:var(--danger)">${s.churn_rate_pct}%</div><div class="kpi-sub">Historical (18% imbalanced)</div></div>
+    <div class="kpi danger"><div class="kpi-label">High Risk (Next 3M)</div><div class="kpi-value" style="color:var(--danger)">${s.high_risk_clients}</div><div class="kpi-sub">P(churn) > 70%</div></div>
+    <div class="kpi warning"><div class="kpi-label">Revenue at Risk</div><div class="kpi-value" style="color:var(--warning)">${fmt(f.revenue_at_risk)}</div><div class="kpi-sub">From high-risk clients</div></div>
+    <div class="kpi success"><div class="kpi-label">Total ARR</div><div class="kpi-value" style="color:var(--success)">${fmt(f.total_arr)}</div><div class="kpi-sub">Annual recurring revenue</div></div>
+    <div class="kpi purple"><div class="kpi-label">Savings (5% Red.)</div><div class="kpi-value" style="color:var(--accent3)">${fmt(f.savings_5pct_reduction)}</div><div class="kpi-sub">12-month retention uplift</div></div>
+    <div class="kpi warning"><div class="kpi-label">Missing Records</div><div class="kpi-value" style="color:var(--warning)">${s.missing_financial_records}</div><div class="kpi-sub">Financial data imputed</div></div>
+    <div class="kpi"><div class="kpi-label">Avg NPS</div><div class="kpi-value">${s.avg_nps}</div><div class="kpi-sub">Out of 10.0</div></div>
+  `;
+}
+
+// ── RISK DONUT ─────────────────────────────
+function renderRiskDonut(s) {
+  const ctx = document.getElementById('riskDonut').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['High Risk', 'Medium Risk', 'Low Risk'],
+      datasets: [{
+        data: [s.high_risk_clients, s.medium_risk_clients, s.low_risk_clients],
+        backgroundColor: ['rgba(239,68,68,0.8)', 'rgba(245,158,11,0.8)', 'rgba(16,185,129,0.8)'],
+        borderColor: ['#ef4444','#f59e0b','#10b981'],
+        borderWidth: 1,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      cutout: '72%',
+      plugins: {
+        legend: { position:'bottom', labels:{padding:16,font:{size:11}} }
+      }
+    }
+  });
+}
+
+// ── INDUSTRY BAR ───────────────────────────
+function renderIndustryBar(data) {
+  const ctx = document.getElementById('industryBar').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.industry),
+      datasets: [{
+        label: 'Avg Churn Risk %',
+        data: data.map(d => d.avg_risk),
+        backgroundColor: data.map(d =>
+          d.avg_risk > 50 ? 'rgba(239,68,68,0.7)' :
+          d.avg_risk > 35 ? 'rgba(245,158,11,0.7)' : 'rgba(16,185,129,0.7)'
+        ),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: {display:false} },
+      scales: {
+        x: { max:100, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v+'%'} },
+        y: { grid:{display:false} }
+      }
+    }
+  });
+}
+
+// ── FEATURE BAR ────────────────────────────
+function renderFeatureBar(data) {
+  const labels = data.features.slice(0,10).map(f => f.replace(/_/g,' '));
+  const vals = data.importance.slice(0,10).map(v => (v*100).toFixed(1));
+  const ctx = document.getElementById('featureBar').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Importance %',
+        data: vals,
+        backgroundColor: 'rgba(0,229,255,0.6)',
+        borderColor: '#00e5ff',
+        borderWidth: 1,
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      plugins: { legend:{display:false} },
+      scales: {
+        y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v+'%'} },
+        x: { grid:{display:false}, ticks:{font:{size:10}} }
+      }
+    }
+  });
+}
+
+// ── REVENUE FORECAST ──────────────────────
+function renderForecast(f) {
+  const fmt = n => n >= 1e6 ? `$${(n/1e6).toFixed(2)}M` : `$${(n/1e3).toFixed(0)}K`;
+  document.getElementById('forecast-highlights').innerHTML = `
+    <div class="forecast-highlight">
+      <div class="big">${fmt(f.total_arr)}</div>
+      <div class="label">Total ARR (Current)</div>
+    </div>
+    <div class="forecast-highlight">
+      <div class="big" style="color:var(--danger)">${f.clients_at_risk}</div>
+      <div class="label">Clients at Risk (P>50%)</div>
+    </div>
+    <div class="forecast-highlight">
+      <div class="big" style="color:var(--success)">${fmt(f.savings_5pct_reduction)}</div>
+      <div class="label">12M Savings via 5% Churn Reduction</div>
+    </div>
+  `;
+
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const ctx = document.getElementById('revenueChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: 'Base Forecast',
+          data: f.base_revenue,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239,68,68,0.05)',
+          borderWidth: 2, fill:true, tension:0.4, pointRadius:3,
+        },
+        {
+          label: 'Optimistic (−5% Churn)',
+          data: f.optimistic_revenue,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16,185,129,0.07)',
+          borderWidth: 2, fill:true, tension:0.4, pointRadius:3,
+          borderDash: [5,3],
+        }
+      ]
+    },
+    options: {
+      plugins: { legend:{position:'top'} },
+      scales: {
+        y: {
+          grid:{color:'rgba(255,255,255,0.04)'},
+          ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'K'}
+        },
+        x: { grid:{display:false} }
+      }
+    }
+  });
+}
+
+// ── CHURN FACTORS ─────────────────────────
+function renderFactors(data) {
+  const impactColor = i => i === 'High' ? 'var(--danger)' : i === 'Medium' ? 'var(--warning)' : 'var(--success)';
+  document.getElementById('factors-list').innerHTML =
+    data.factors.map(f => `
+      <div class="factor-item">
+        <div class="factor-header">
+          <span class="factor-name">${f.factor}</span>
+          <span class="badge" style="background:rgba(0,0,0,0.2);color:${impactColor(f.impact)};border:1px solid ${impactColor(f.impact)}40">${f.impact}</span>
+        </div>
+        <div class="factor-affected">${f.affected_clients} clients affected</div>
+        <div class="factor-reco">→ ${f.recommendation}</div>
+      </div>
+    `).join('');
+
+  document.getElementById('strategies-list').innerHTML =
+    data.strategies_to_reduce_churn_5pct.map((s,i) =>
+      `<li><span class="strategy-num">0${i+1}</span>${s}</li>`
+    ).join('');
+}
+
+// ── MODEL METRICS ─────────────────────────
+async function loadModelMetrics() {
+  try {
+    const m = await apiFetch('/model-metrics');
+    document.getElementById('model-metrics').innerHTML = [
+      ['ROC-AUC', (m.roc_auc*100).toFixed(1)+'%'],
+      ['Accuracy', (m.accuracy*100).toFixed(1)+'%'],
+      ['Precision (Churn)', (m.precision*100).toFixed(1)+'%'],
+      ['Recall (Churn)', (m.recall*100).toFixed(1)+'%'],
+      ['F1 Score', (m.f1_score*100).toFixed(1)+'%'],
+      ['Train Samples', m.train_size.toLocaleString()],
+      ['Test Samples', m.test_size.toLocaleString()],
+    ].map(([k,v]) => `
+      <div class="metric-row">
+        <span class="metric-key">${k}</span>
+        <span class="metric-val">${v}</span>
+      </div>
+    `).join('');
+  } catch(_) {}
+}
+
+// ── CLIENT TABLE ──────────────────────────
+async function loadClients(filter) {
+  document.getElementById('client-table-wrap').innerHTML =
+    '<div class="loader"><div class="spinner"></div><span>Loading…</span></div>';
+  try {
+    const data = await apiFetch(`/clients?limit=50&risk_filter=${filter}`);
+    allClients = data;
+    renderClientTable(data);
+  } catch(e) {
+    document.getElementById('client-table-wrap').innerHTML =
+      '<div style="padding:2rem;color:var(--danger);font-size:0.75rem">Failed to load client data. Is the backend running?</div>';
+  }
+}
+
+function renderClientTable(data) {
+  const fmt = n => '$' + Number(n).toLocaleString('en', {maximumFractionDigits:0});
+  const rows = data.map(c => {
+    const rl = c.risk_level.toLowerCase();
+    const fill = rl === 'high' ? 'high' : rl === 'medium' ? 'medium' : 'low';
+    return `<tr>
+      <td style="color:var(--muted)">${c.client_id}</td>
+      <td style="color:var(--text);font-weight:500">${c.client_name}</td>
+      <td>${c.industry}</td>
+      <td>${fmt(c.contract_value)}</td>
+      <td>${c.tenure_months}m</td>
+      <td>${c.num_services}</td>
+      <td>${c.nps_score.toFixed(1)}</td>
+      <td>${c.engagement_score.toFixed(0)}</td>
+      <td>${c.contract_renewal_months}m</td>
+      <td>
+        <div class="risk-bar-wrap">
+          <div class="risk-bar"><div class="risk-fill ${fill}" style="width:${c.churn_risk_score}%"></div></div>
+          <span class="risk-val">${c.churn_risk_score}%</span>
+        </div>
+      </td>
+      <td><span class="badge badge-${rl}">${c.risk_level}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('client-table-wrap').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Client</th><th>Industry</th><th>Contract</th>
+        <th>Tenure</th><th>Services</th><th>NPS</th><th>Engage.</th>
+        <th>Renewal</th><th colspan="2">Churn Risk</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function filterClients(filter, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadClients(filter);
+}
+
+// ── MOCK DATA (offline fallback) ──────────
+function renderMockData() {
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi danger"><div class="kpi-label">Status</div>
+      <div class="kpi-value" style="font-size:1rem;color:var(--danger)">API OFFLINE</div>
+      <div class="kpi-sub">Run: uvicorn main:app --reload</div>
+    </div>
+  `;
+}
+
+// ── START ──────────────────────────────────
+init();
+</script>
+</body>
+</html>
